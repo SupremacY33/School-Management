@@ -1,0 +1,52 @@
+/* ===============================
+   THEME ADAPTIVE DASHBOARD STYLES
+   =============================== */
+
+/* Common */
+.dashboard-wrapper {
+  transition: background-color 0.3s ease, color 0.3s ease;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+}
+
+/* Light Theme (default) */
+:root {
+  --bg: #f8f9fa;
+  --text: #212529;
+  --card-bg: #ffffff;
+  --list-bg: #ffffff;
+  --border-color: #dee2e6;
+}
+
+/* Dark Theme (auto applies if user system is dark mode) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --text: #f0f6fc;
+    --card-bg: #161b22;
+    --list-bg: #161b22;
+    --border-color: #30363d;
+  }
+}
+
+/* Card and List Theming */
+.theme-card {
+  background-color: var(--card-bg) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.theme-list .list-group-item {
+  background-color: var(--list-bg);
+  color: var(--text);
+  border-color: var(--border-color);
+}
