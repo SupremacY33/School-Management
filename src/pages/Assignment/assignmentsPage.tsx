@@ -67,6 +67,7 @@ const Assignments: React.FC = () => {
     formData.append("DueDate", selectedAssignment.dueDate);
     formData.append("file", file);
 
+    // Calling Backend API To Upload The File
     try {
       const res = await fetch("https://localhost:7072/api/Assignment/upload", {
         method: "POST",
