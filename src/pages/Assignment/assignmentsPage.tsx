@@ -11,6 +11,23 @@ const Assignments: React.FC = () => {
   const [details, setDetails] = useState<any>(null);
   const [file, setFile] = useState<File | null>(null);
 
+  // Extract studentId and name from JWT (if available)
+  const token = localStorage.getItem("token");
+  let studentId: number | null = null;
+  let studentFirstName = "";
+  let studentLastName = "";
+  if (token) {
+    try {
+      const payloadBase64 = token.split(".")[1];
+      const decoded = JSON.parse(atob(payloadBase64));
+      studentId = Number(decoded?.sub ?? decoded?.nameid ?? null);
+      studentFirstName = decoded?.given_name ?? decoded?.firstname ?? "";
+      studentLastName = decoded?.family_name ?? decoded?.lastname ?? "";
+    } catch {
+      studentId = null;
+    }
+  }
+
   // Load assignments
   useEffect(() => {
     const fetchAssignments = async () => {
@@ -18,7 +35,10 @@ const Assignments: React.FC = () => {
         const res = await fetch("https://localhost:7072/api/Assignment");
         if (!res.ok) throw new Error("Failed to fetch assignments");
         const data = await res.json();
-        setAssignments(data);
+        // Map assignments and keep existing filePath value if present.
+        // Also make sure we have a flag to mark this student as submitted (if backend provides filePath)
+        const mapped = data.map((a: any) => ({ ...a, studentSubmitted: !!a.filePath }));
+        setAssignments(mapped);
       } catch (err) {
         console.error("Error loading assignments:", err);
       } finally {
@@ -58,34 +78,57 @@ const Assignments: React.FC = () => {
     }
 
     const formData = new FormData();
-    formData.append("Id", selectedAssignment.id);
-    formData.append("Title", selectedAssignment.title ?? "");
-    formData.append("Description", selectedAssignment.description ?? "");
-    formData.append("ClassroomId", selectedAssignment.classroomId ?? 0);
-    formData.append("ClassroomName", selectedAssignment.classroomName ?? "N/A");
-    formData.append("FilePath", "");
-    formData.append("DueDate", selectedAssignment.dueDate);
+    // Build multipart form data according to StudentAssignment API
+    formData.append("Id", "0");
+    formData.append("StudentId", String(studentId ?? "0"));
+    formData.append("AssignmentId", String(selectedAssignment.id));
+    formData.append("SubmissionFilePath", "");
+    formData.append("SubmittedOn", new Date().toISOString());
+    formData.append("StudentFirstName", studentFirstName ?? "");
+    formData.append("StudentLastName", studentLastName ?? "");
+    formData.append("AssignmentTitle", selectedAssignment.title ?? "");
     formData.append("file", file);
 
-    // Calling Backend API To Upload The File
+    // Call the StudentAssignment upload endpoint (multipart/form-data)
     try {
-      const res = await fetch("https://localhost:7072/api/Assignment/upload", {
-        method: "POST",
-        body: formData,
-      });
+      const headers: any = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const res = await fetch(
+        "https://localhost:7072/api/StudentAssignment/UploadStudentAssignment",
+        {
+          method: "POST",
+          headers,
+          body: formData,
+        }
+      );
 
       if (!res.ok) throw new Error("Upload failed");
+
+      // Try to read returned JSON (may contain submission path/url)
+      let respJson: any = {};
+      try {
+        respJson = await res.json();
+      } catch {}
 
       alert("Assignment uploaded successfully!");
       setShowModal(false);
       setFile(null);
 
-      // Refresh assignments list to reflect uploaded file
-      const updatedRes = await fetch("https://localhost:7072/api/Assignment");
-      if (updatedRes.ok) {
-        const updatedData = await updatedRes.json();
-        setAssignments(updatedData);
-      }
+      // Update local assignments state: mark this assignment as submitted for current student
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.id === selectedAssignment.id
+            ? {
+                ...a,
+                studentSubmitted: true,
+                // try to use any path returned by API
+                filePath:
+                  respJson?.submissionFilePath || respJson?.filePath || a.filePath || "",
+              }
+            : a
+        )
+      );
     } catch (err) {
       console.error(err);
       alert("Upload failed!");
@@ -138,14 +181,14 @@ const Assignments: React.FC = () => {
 
                   <button
                     onClick={() => handleUploadClick(assignment)}
-                    disabled={!!assignment.filePath}
+                    disabled={!!assignment.filePath || !!assignment.studentSubmitted}
                     className={`px-3 py-1 rounded-lg text-sm ${
-                      assignment.filePath
+                      assignment.filePath || assignment.studentSubmitted
                         ? "bg-gray-400 text-white cursor-not-allowed"
                         : "bg-teal-500 hover:bg-teal-600 text-white"
                     }`}
                   >
-                    {assignment.filePath ? "Submitted" : "Upload"}
+                    {assignment.filePath || assignment.studentSubmitted ? "Submitted" : "Upload"}
                   </button>
                 </div>
               </div>
@@ -225,15 +268,21 @@ const Assignments: React.FC = () => {
               <strong>Due Date:</strong> {details.dueDate?.substring(0, 10)}
             </p>
 
-            {details.filePath && (
-              <a
-                href={`https://localhost:7072${details.filePath}`}
-                target="_blank"
-                className="text-blue-500 underline"
-              >
-                Download File
-              </a>
-            )}
+            {(() => {
+              const local = assignments.find((a) => a.id === details.id)?.filePath;
+              const path = details.filePath || local;
+              return (
+                path && (
+                  <a
+                    href={`https://localhost:7072${path}`}
+                    target="_blank"
+                    className="text-blue-500 underline"
+                  >
+                    Download File
+                  </a>
+                )
+              );
+            })()}
 
             <div className="flex justify-end mt-4">
               <button
