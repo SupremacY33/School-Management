@@ -75,12 +75,12 @@ const Grades: React.FC = () => {
       <div className="text-center py-10 text-lg font-medium">Loading...</div>
     );
 
-  if (error) {
-    return (
+  {
+    error && (
       <div className="text-center py-3 text-red-600 font-medium">
         {error}
       </div>
-    );
+    )
   }
 
   if (!gradeRecords.length)
@@ -91,7 +91,7 @@ const Grades: React.FC = () => {
         </h2>
 
         <button
-          onClick={() => (window.location.href = "/dashboard")}
+          onClick={() => navigate("/dashboard")}
           className="px-5 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition"
         >
           Go to Home
