@@ -75,12 +75,12 @@ const Grades: React.FC = () => {
       <div className="text-center py-10 text-lg font-medium">Loading...</div>
     );
 
-  {
-    error && (
+  if (error) {
+    return (
       <div className="text-center py-3 text-red-600 font-medium">
         {error}
       </div>
-    )
+    );
   }
 
   if (!gradeRecords.length)
