@@ -8,8 +8,9 @@ import "./dashboard.module.css";
 
 const Dashboard: React.FC = () => {
   const [studentData, setStudentData] = useState<any>(null);
+  const [notices, setNotices] = useState<any[]>([]);
 
-    useEffect(() => {
+  useEffect(() => {
     const fetchStudentData = async () => {
       try {
         const token = localStorage.getItem("token");
@@ -48,7 +49,32 @@ const Dashboard: React.FC = () => {
       }
     };
 
+    const fetchNotices = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const response = await fetch("https://localhost:7072/api/Notice/AllNoticeRecord", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch notices (Status: ${response.status})`);
+        }
+
+        const noticeData = await response.json();
+        setNotices(noticeData);
+      } catch (error) {
+        console.error("Error fetching notices:", error);
+      }
+    };
+
     fetchStudentData();
+    fetchNotices();
   }, []);
 
   return (
@@ -115,18 +141,21 @@ const Dashboard: React.FC = () => {
               <Card className="shadow-sm border-0">
                 <Card.Body>
                   <ul className="list-group list-group-flush">
-                    <li className="list-group-item">
-                      🧠 New Math assignment uploaded (Due in 3 days)
-                    </li>
-                    <li className="list-group-item">
-                      💳 Your fee payment is due on 30th October
-                    </li>
-                    <li className="list-group-item">
-                      🧮 Mid-Term Results are now available
-                    </li>
-                    <li className="list-group-item">
-                      📅 Parent-Teacher meeting scheduled for 2nd November
-                    </li>
+                    {notices.length > 0 ? (
+                      notices.map((notice, idx) => (
+                        <li key={idx} className="list-group-item">
+                          📢 <strong>{notice.title}</strong> — {notice.description}
+                          <br />
+                          <small className="text-muted">
+                            {new Date(notice.noticeDate).toLocaleDateString()}
+                          </small>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="list-group-item text-muted text-center">
+                        No notifications available.
+                      </li>
+                    )}
                   </ul>
                 </Card.Body>
               </Card>

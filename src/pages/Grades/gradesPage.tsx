@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Header from "../../components/navbar";
 import Footer from "../../components/footer";
+import { useNavigate } from "react-router-dom";
 
 const Grades: React.FC = () => {
   const [gradeRecords, setGradeRecords] = useState<any[]>([]);
@@ -10,14 +11,28 @@ const Grades: React.FC = () => {
 
   // Extract studentId from JWT
   const token = localStorage.getItem("token");
-  if (!token) throw new Error("Missing token");
+  if (!token) {
+    console.warn("Missing token");
+  }
+
+  const navigate = useNavigate();
+
 
   let studentId: number | null = null;
-  try {
-    const payloadBase64 = token.split(".")[1];
-    const decoded = JSON.parse(atob(payloadBase64));
-    studentId = Number(decoded?.sub ?? decoded?.nameid ?? null);
-  } catch {
+  if (token) {
+    try {
+      const parts = token.split(".");
+      const payloadBase64 = parts[1] ?? null;
+      if (payloadBase64) {
+        const decoded = JSON.parse(atob(payloadBase64));
+        studentId = Number(decoded?.sub ?? decoded?.nameid ?? null);
+      } else {
+        studentId = null;
+      }
+    } catch {
+      studentId = null;
+    }
+  } else {
     studentId = null;
   }
 
@@ -28,10 +43,16 @@ const Grades: React.FC = () => {
           `https://localhost:7072/api/Grade/GradeRecordByStudentId/${studentId}`
         );
 
-        if (!response.ok) throw new Error("Failed to fetch grade records");
+        if (!response.ok) {
+          if (response.status === 404) {
+            setGradeRecords([]); // no records found
+            return;
+          }
+          throw new Error("Failed to fetch grade records");
+        }
 
         const data = await response.json();
-        setGradeRecords(data); // <-- API returns a list now
+        setGradeRecords(data);
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -42,21 +63,40 @@ const Grades: React.FC = () => {
     fetchGrades();
   }, []);
 
+  // Redirect to dashboard if fetch completed and there are no grade records
+  useEffect(() => {
+    if (!loading && !error && Array.isArray(gradeRecords) && gradeRecords.length === 0) {
+      navigate("/dashboard");
+    }
+  }, [loading, error, gradeRecords, navigate]);
+
   if (loading)
     return (
       <div className="text-center py-10 text-lg font-medium">Loading...</div>
     );
 
-  if (error)
-    return (
-      <div className="text-center py-10 text-red-600 font-medium">
-        Error: {error}
+  {
+    error && (
+      <div className="text-center py-3 text-red-600 font-medium">
+        {error}
       </div>
-    );
+    )
+  }
 
   if (!gradeRecords.length)
     return (
-      <div className="text-center py-10 text-gray-600">No grade found.</div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+        <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-4">
+          No grade found.
+        </h2>
+
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="px-5 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition"
+        >
+          Go to Home
+        </button>
+      </div>
     );
 
   // Convert the API list into UI-friendly format
@@ -118,7 +158,7 @@ const Grades: React.FC = () => {
               >
                 <option value="All">All</option>
                 <option value="Midterm">Mid-term</option>
-                <option value="Finalexam">Final-Exam</option>
+                <option value="Finalterm">Final-term</option>
                 <option value="Quiz">Quiz</option>
               </select>
 
